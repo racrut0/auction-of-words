@@ -1,0 +1,49 @@
+/* Цвета и шрифт — меняйте здесь. Все пары цвет/фон проверены на контраст WCAG AA (≥ 4.5). */
+:root {
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --accent: #26796a;      /* белый на нём: 5.4 */
+  --accent-dark: #1e6256;
+  --bg: #f7f9fa;
+  --surface: #ffffff;
+  --line: #dfe5e8;
+  --text: #1f2a30;        /* на белом: 14.7 */
+  --muted: #5b6a73;       /* на белом: 5.5, на --bg: 5.2 */
+  --error: #b3261e;
+  --error-bg: #fdecea;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+  font-family: var(--font); background: var(--bg); color: var(--text); }
+#root { display: flex; flex-direction: column; flex: 1; }
+.topbar { display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 32px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 700; font-size: 18px; }
+nav { display: flex; gap: 12px; align-items: center; }
+.who { color: var(--muted); font-size: 14px; }
+main { flex: 1; display: flex; justify-content: center; align-items: center; padding: 32px 16px; }
+.card { width: 100%; max-width: 390px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 24px; }
+.card.wide { max-width: 720px; }
+h1 { margin: 0 0 16px; font-size: 22px; }
+.tabs { display: flex; gap: 4px; padding: 3px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; margin-bottom: 16px; }
+.tabs button { flex: 1; padding: 7px; border: 0; border-radius: 4px; background: none;
+  font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; }
+.tabs button.active { background: var(--surface); color: var(--accent); font-weight: 600;
+  box-shadow: 0 0 0 1px var(--line); }
+form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+input { padding: 9px 10px; border: 1px solid #aab6bd; border-radius: 5px; font: inherit; font-size: 14px;
+  color: var(--text); }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn { padding: 10px 14px; border-radius: 5px; border: 1px solid var(--line);
+  background: var(--surface); font: inherit; font-size: 14px; cursor: pointer; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn-primary:hover { background: var(--accent-dark); }
+.link { background: none; border: 0; padding: 0; font: inherit; font-size: 12px;
+  color: var(--accent); cursor: pointer; text-align: left; }
+.link:hover { text-decoration: underline; }
+.hint, .foot { font-size: 12px; color: var(--muted); margin: 0; }
+.foot { margin-top: 18px; }
+.error { background: var(--error-bg); color: var(--error); padding: 8px 10px;
+  border-radius: 5px; font-size: 13px; margin: 0 0 12px; }
