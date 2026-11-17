@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Вход в игру — Аукцион слов{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Вход в игру</h1>
+  <div class="tabs">
+    <a class="{{ 'active' if tab == 'email' }}" href="{{ url_for('auth.login') }}">По e-mail</a>
+    <a class="{{ 'active' if tab == 'guest' }}" href="{{ url_for('auth.guest') }}">Гостем</a>
+  </div>
+  {% for m in get_flashed_messages() %}<p class="error">{{ m }}</p>{% endfor %}
+
+  {% if tab == 'email' %}
+  <form method="post" action="{{ url_for('auth.login') }}">
+    <label>E-mail<input type="email" name="email" required autofocus></label>
+    <label>Пароль<input type="password" name="password" required></label>
+    <a class="link" href="#" title="Будет в Release 2 (US-05)">Забыли пароль?</a>
+    <button class="btn btn-primary">Войти</button>
+  </form>
+  <p class="foot">Нет аккаунта? <a class="link" href="{{ url_for('auth.register') }}">Зарегистрироваться</a></p>
+  {% else %}
+  <form method="post" action="{{ url_for('auth.guest') }}">
+    <p class="hint">Без регистрации</p>
+    <label>Имя игрока<input name="nick" required minlength="2" maxlength="20" autofocus></label>
+    <button class="btn btn-primary">Продолжить гостем</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

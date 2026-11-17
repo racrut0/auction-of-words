@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Регистрация — Аукцион слов{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Регистрация</h1>
+  {% for m in get_flashed_messages() %}<p class="error">{{ m }}</p>{% endfor %}
+  <form method="post">
+    <label>Имя игрока<input name="nick" required minlength="2" maxlength="20" value="{{ request.form.nick }}"></label>
+    <label>E-mail<input type="email" name="email" required value="{{ request.form.email }}"></label>
+    <label>Пароль<input type="password" name="password" required minlength="6"></label>
+    <label>Повтор пароля<input type="password" name="repeat" required minlength="6"></label>
+    <p class="hint">На указанный e-mail придёт письмо с подтверждением.</p>
+    <button class="btn btn-primary">Создать аккаунт</button>
+  </form>
+  <p class="foot">Уже есть аккаунт? <a class="link" href="{{ url_for('auth.login') }}">Войти</a></p>
+</section>
+{% endblock %}

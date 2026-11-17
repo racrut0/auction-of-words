@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Аукцион слов{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('lobby') }}">Аукцион слов</a>
+    {% if g.user %}
+    <nav>
+      <span class="who">{{ g.user.nick }}{% if g.user.guest %} (гость){% endif %}</span>
+      <form method="post" action="{{ url_for('auth.logout') }}"><button class="btn btn-outline">Выйти</button></form>
+    </nav>
+    {% endif %}
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
