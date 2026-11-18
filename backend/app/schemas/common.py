@@ -7,8 +7,6 @@ def to_camel(value: str) -> str:
 
 
 class CamelModel(BaseModel):
-    """Base schema that speaks camelCase JSON (same contract as the Java backend)."""
-
     model_config = ConfigDict(
         alias_generator=to_camel,
         populate_by_name=True,

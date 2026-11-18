@@ -1,6 +1,6 @@
 import os
 
-# Configure the test database before importing the application.
+# Тестовая БД должна быть выбрана до импорта приложения.
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://postgres:postgres@localhost:5433/wordauction_test",

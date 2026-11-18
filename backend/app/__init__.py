@@ -1,1 +1,0 @@
-"""Word Auction backend package."""

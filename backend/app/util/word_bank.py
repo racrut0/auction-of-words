@@ -1,8 +1,3 @@
-"""Words available in the default game word bank.
-
-All words are uppercase and use Е instead of Ё for simplicity.
-"""
-
 DEFAULT_WORDS: tuple[str, ...] = (
     "КОТ",
     "ДОМ",
