@@ -1,0 +1,41 @@
+"""Words available in the default game word bank.
+
+All words are uppercase and use Е instead of Ё for simplicity.
+"""
+
+DEFAULT_WORDS: tuple[str, ...] = (
+    "КОТ",
+    "ДОМ",
+    "ЛЕС",
+    "СОН",
+    "МИР",
+    "СЛОВО",
+    "ИГРА",
+    "БУКВА",
+    "АУКЦИОН",
+    "ПОБЕДА",
+    "СТОЛ",
+    "ОКНО",
+    "ДВЕРЬ",
+    "КНИГА",
+    "РУЧКА",
+    "МОРЕ",
+    "ГОРА",
+    "РЕКА",
+    "ЗВЕЗДА",
+    "ЛУНА",
+    "СОЛНЦЕ",
+    "ВЕТЕР",
+    "ОГОНЬ",
+    "ЗЕМЛЯ",
+    "ВОДА",
+    "ДРУГ",
+    "ВРАГ",
+    "КОРОЛЬ",
+    "ЗАМОК",
+    "МЕЧ",
+)
+
+
+def default_words() -> list[str]:
+    return list(DEFAULT_WORDS)
