@@ -127,7 +127,6 @@ async def forgot_password(session: AsyncSession, email: str | None) -> ForgotPas
 
     user = await _find_by_email(session, normalized)
     if user is None:
-        # Do not expose whether the address is registered.
         return ForgotPasswordResponse(
             message="Если такой e-mail зарегистрирован, ссылка для смены пароля отправлена",
             token=None,

@@ -1,6 +1,6 @@
-# Starts a local PostgreSQL cluster for development (no Docker required).
+# Локальный кластер PostgreSQL для разработки, без Docker.
 #
-# Usage:
+# Примеры:
 #   powershell -ExecutionPolicy Bypass -File scripts/dev_db.ps1 init
 #   powershell -ExecutionPolicy Bypass -File scripts/dev_db.ps1 start
 #   powershell -ExecutionPolicy Bypass -File scripts/dev_db.ps1 stop
@@ -23,7 +23,7 @@ switch ($Action) {
         & "$PgBin\pg_ctl.exe" -D $DataDir -o "-p $Port" -l "$DataDir\server.log" -w start
         & "$PgBin\createdb.exe" -h localhost -p $Port -U postgres wordauction 2>$null
         & "$PgBin\createdb.exe" -h localhost -p $Port -U postgres wordauction_test 2>$null
-        Write-Host "PostgreSQL is running on localhost:$Port (databases: wordauction, wordauction_test)"
+        Write-Host "PostgreSQL запущен на localhost:$Port (БД: wordauction, wordauction_test)"
     }
     "start" {
         & "$PgBin\pg_ctl.exe" -D $DataDir -o "-p $Port" -l "$DataDir\server.log" -w start
