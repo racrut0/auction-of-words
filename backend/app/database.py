@@ -14,7 +14,12 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+engine = create_async_engine(settings.database_url, 
+                             pool_pre_ping=True,
+                             pool_size = 5,
+                             max_overflow = 10,
+                             pool_recycle = 1800) # Время жизни соединения
+
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
