@@ -4,6 +4,7 @@ import { lobbyService } from "../../services/lobbies.js";
 export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [leaveError, setLeaveError] = useState("");
 
   function join(value) {
     try {
@@ -12,6 +13,15 @@ export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
       onOpen(lobby.code);
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  function leave(code) {
+    try {
+      lobbyService.leave(user.id, code);
+      setLeaveError("");
+    } catch (e) {
+      setLeaveError(e.message);
     }
   }
 
@@ -46,6 +56,7 @@ export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
 
       <section className="panel available-lobbies" aria-labelledby="available-title">
         <h2 id="available-title">Доступные лобби</h2>
+        {leaveError && <p className="form-error" role="alert">{leaveError}</p>}
         <table className="data-table lobby-table">
           <thead><tr><th>Код</th><th>Создатель</th><th>Игроки</th><th>Состояние</th><th><span className="visually-hidden">Подключение</span></th></tr></thead>
           <tbody>
@@ -61,10 +72,14 @@ export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
                   <td>{creator?.nick ?? "—"}</td>
                   <td>{lobby.players.length} из {lobby.settings.maxPlayers}</td>
                   <td className="muted">{lobby.status === "waiting" ? "Ожидание" : "Идёт игра"}</td>
-                  <td className="table-action"><button className="btn btn-primary" disabled={isFull || isStarted}
-                    onClick={() => join(lobby.code)} aria-label={`Подключиться к лобби ${lobby.code}`}>
-                    {isFull ? "Мест нет" : isStarted ? "Игра началась" : "Подключиться"}
-                  </button></td>
+                  <td className="table-action"><div className="lobby-row-actions">
+                    <button className="btn btn-primary" disabled={isFull || isStarted}
+                      onClick={() => join(lobby.code)} aria-label={`${isMember ? "Открыть лобби" : "Подключиться к лобби"} ${lobby.code}`}>
+                      {isMember ? "Открыть" : isFull ? "Мест нет" : isStarted ? "Игра началась" : "Подключиться"}
+                    </button>
+                    {isMember && <button className="btn btn-danger" type="button" onClick={() => leave(lobby.code)}
+                      aria-label={`Выйти из партии ${lobby.code}`}>Выйти из партии</button>}
+                  </div></td>
                 </tr>
               );
             })}

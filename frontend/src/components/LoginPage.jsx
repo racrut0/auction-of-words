@@ -19,7 +19,7 @@ export default function LoginPage({ onLogin, onGuest, goRegister }) {
     const err = validateEmail(email) || (password ? null : "Введите пароль.");
     setError(err);
     // TODO: когда появится бэкенд — отправить email/password на API (US-02)
-    if (!err) onLogin({ nick: email.split("@")[0], guest: false });
+    if (!err) onLogin({ nick: email.trim().split("@")[0], email: email.trim().toLowerCase(), guest: false });
   };
 
   const submitGuest = (e) => {

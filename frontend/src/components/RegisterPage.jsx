@@ -12,7 +12,7 @@ export default function RegisterPage({ onRegister, goLogin }) {
     const err = validateRegister(form);
     setError(err);
     // TODO: когда появится бэкенд — отправить форму на API (US-01)
-    if (!err) onRegister({ nick: form.nick.trim(), guest: false });
+    if (!err) onRegister({ nick: form.nick.trim(), email: form.email.trim().toLowerCase(), guest: false });
   };
 
   return (

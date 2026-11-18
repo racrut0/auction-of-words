@@ -62,6 +62,8 @@ export default function LobbyRoomPage({ user, lobby, onBack }) {
               {isCreator && <button className="btn btn-primary" disabled title="Начало партии пока недоступно">Начать партию</button>}</div>
           </section>
           {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="page-footer-actions"><button className="btn btn-soft" type="button" onClick={onBack}>Вернуться в лобби</button>
+            <button className="btn btn-danger leave-lobby" type="button" onClick={() => act(() => { lobbyService.leave(user.id, lobby.code); onBack(); })}>Выйти из партии</button></div>
         </div>
         <aside className="room-sidebar">
           <section className="panel party-summary" aria-labelledby="party-title"><h2 id="party-title">Партия</h2>
@@ -75,8 +77,6 @@ export default function LobbyRoomPage({ user, lobby, onBack }) {
           </section>
         </aside>
       </div>
-      <div className="page-footer-actions"><button className="btn btn-soft" onClick={onBack}>Вернуться в лобби</button>
-        <button className="link leave-lobby" onClick={() => act(() => { lobbyService.leave(user.id, lobby.code); onBack(); })}>Выйти из лобби</button></div>
     </section>
   );
 }
