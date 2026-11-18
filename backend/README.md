@@ -27,6 +27,26 @@ API docs: <http://localhost:8081/docs>, health check: <http://localhost:8081/api
 If you already have PostgreSQL running, just set `DATABASE_URL` in `.env` to your database and create the
 `wordauction` / `wordauction_test` databases.
 
+## API
+
+All responses use camelCase JSON (same contract as the previous Java backend). Business errors are
+returned as `{"error": "<message>"}`.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/health` | Health check including the database |
+| POST | `/api/auth/register` | Register (`username`, `email`, `password`) |
+| POST | `/api/auth/login` | Login by username or e-mail |
+| POST | `/api/auth/confirm-email` | Confirm e-mail with a token |
+| POST | `/api/auth/resend-confirmation` | Resend the confirmation token |
+| POST | `/api/auth/forgot-password` | Create a password reset token |
+| POST | `/api/auth/reset-password` | Set a new password |
+| GET | `/api/profile` | Current user profile and statistics |
+| PUT | `/api/profile/email` | Change e-mail (requires confirmation) |
+| GET | `/api/word-bank/default` | Default word bank with base scores |
+
+Authenticated endpoints expect `Authorization: Bearer <token>`.
+
 ## Tests
 
 Tests use the separate `wordauction_test` database (override with `TEST_DATABASE_URL`).
