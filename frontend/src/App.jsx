@@ -5,7 +5,6 @@ import RulesPage from "./components/RulesPage.jsx";
 import ConnectionLostPage from "./components/ConnectionLostPage.jsx";
 import ProfilePage from "./components/ProfilePage.jsx";
 import LobbyApp from "./components/lobby/LobbyApp.jsx";
-import { getDemoProfile } from "./data/profile.js";
 import { lobbyService } from "./services/lobbies.js";
 
 const USER_SESSION_KEY = "word-auction:user";
@@ -13,9 +12,20 @@ const USER_SESSION_KEY = "word-auction:user";
 function readUser() {
   try {
     const user = JSON.parse(sessionStorage.getItem(USER_SESSION_KEY));
-    return typeof user?.id === "string" && typeof user?.nick === "string" ? user : null;
+    if (typeof user?.id !== "string" || typeof user.nick !== "string") return null;
+    if (user.guest === true || (typeof user.token === "string" && user.token)) return user;
+    return null;
   } catch {
     return null;
+  }
+}
+
+function saveUser(user) {
+  try {
+    if (user) sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(USER_SESSION_KEY);
+  } catch {
+    // При недоступном хранилище сессия действует до обновления страницы.
   }
 }
 
@@ -38,22 +48,26 @@ export default function App() {
   };
   const enter = (u) => {
     const nextUser = { ...u, id: crypto.randomUUID() };
-    sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(nextUser));
+    saveUser(nextUser);
     setUser(nextUser);
     window.location.hash = "lobby";
   };
-  const logout = () => {
-    lobbyService.leave(user.id);
-    sessionStorage.removeItem(USER_SESSION_KEY);
-    setUser(null);
-    openPage(null);
-    setScreen("login");
-    window.location.hash = "";
+  const enterAccount = ({ username, token }) => {
+    if (typeof username !== "string" || !username || typeof token !== "string" || !token) {
+      throw new Error("Сервер вернул неполные данные для входа.");
+    }
+    enter({ nick: username, token, guest: false });
   };
-  const changeEmail = (email) => {
-    const nextUser = { ...user, email, emailConfirmed: false };
-    sessionStorage.setItem(USER_SESSION_KEY, JSON.stringify(nextUser));
-    setUser(nextUser);
+  const logout = () => {
+    try {
+      lobbyService.leave(user.id);
+    } finally {
+      saveUser(null);
+      setUser(null);
+      openPage(null);
+      setScreen("login");
+      window.location.hash = "";
+    }
   };
   const backToLobby = () => {
     openPage(null);
@@ -82,13 +96,13 @@ export default function App() {
         {currentPage === "rules" && <RulesPage onClose={() => openPage(null)} />}
         {currentPage === "connection" && <ConnectionLostPage onBack={backToLobby} />}
         {currentPage === "profile" && user && (
-          <ProfilePage profile={getDemoProfile(user)} onChangeEmail={changeEmail} onBack={backToLobby} />
+          <ProfilePage key={user.id} user={user} onSessionExpired={logout} onBack={backToLobby} />
         )}
         {!currentPage && !user && screen === "login" && (
-          <LoginPage onLogin={enter} onGuest={enter} goRegister={() => setScreen("register")} />
+          <LoginPage onLogin={enterAccount} onGuest={enter} goRegister={() => setScreen("register")} />
         )}
         {!currentPage && !user && screen === "register" && (
-          <RegisterPage onRegister={enter} goLogin={() => setScreen("login")} />
+          <RegisterPage onRegister={enterAccount} goLogin={() => setScreen("login")} />
         )}
         {!currentPage && user && <LobbyApp user={user} />}
       </main>

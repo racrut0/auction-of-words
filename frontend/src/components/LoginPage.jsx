@@ -1,11 +1,13 @@
 import { useState } from "react";
 import Field from "./Field.jsx";
-import { validateEmail, validateNick } from "../validation.js";
+import useAuthSubmit from "../hooks/useAuthSubmit.js";
+import { login } from "../services/account.js";
+import { validateLogin, validateNick } from "../validation.js";
 
 export default function LoginPage({ onLogin, onGuest, goRegister }) {
   const [tab, setTab] = useState("email");
-  const [error, setError] = useState(null);
-  const [email, setEmail] = useState("");
+  const { submit, pending, error, setError } = useAuthSubmit(login, onLogin);
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [nick, setNick] = useState("");
 
@@ -14,12 +16,14 @@ export default function LoginPage({ onLogin, onGuest, goRegister }) {
     setError(null);
   };
 
-  const submitEmail = (e) => {
+  const submitAccount = (e) => {
     e.preventDefault();
-    const err = validateEmail(email) || (password ? null : "Введите пароль.");
-    setError(err);
-    // TODO: когда появится бэкенд — отправить email/password на API (US-02)
-    if (!err) onLogin({ nick: email.trim().split("@")[0], email: email.trim().toLowerCase(), guest: false });
+    const err = validateLogin(identifier, password);
+    if (err) {
+      setError(err);
+      return;
+    }
+    void submit({ username: identifier.trim(), password });
   };
 
   const submitGuest = (e) => {
@@ -34,11 +38,11 @@ export default function LoginPage({ onLogin, onGuest, goRegister }) {
       <h1>Вход в игру</h1>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "email"}
-          className={tab === "email" ? "active" : ""} onClick={() => switchTab("email")}>
-          E-mail
+          className={tab === "email" ? "active" : ""} disabled={pending} onClick={() => switchTab("email")}>
+          Аккаунт
         </button>
         <button role="tab" aria-selected={tab === "guest"}
-          className={tab === "guest" ? "active" : ""} onClick={() => switchTab("guest")}>
+          className={tab === "guest" ? "active" : ""} disabled={pending} onClick={() => switchTab("guest")}>
           Гостем
         </button>
       </div>
@@ -47,17 +51,18 @@ export default function LoginPage({ onLogin, onGuest, goRegister }) {
 
       {tab === "email" ? (
         <>
-          <form onSubmit={submitEmail} noValidate>
-            <Field label="E-mail" id="email" type="email" value={email}
-              onChange={(e) => setEmail(e.target.value)} autoFocus />
-            <Field label="Пароль" id="password" type="password" value={password}
-              onChange={(e) => setPassword(e.target.value)} />
-            <button type="button" className="link" onClick={() => {}}>Забыли пароль?</button>
-            <button className="btn btn-primary">Войти</button>
+          <form onSubmit={submitAccount} noValidate aria-busy={pending}>
+            <Field label="Имя игрока или e-mail" id="login-identifier" autoComplete="username" value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)} disabled={pending} autoFocus />
+            <Field label="Пароль" id="password" type="password" autoComplete="current-password" value={password}
+              onChange={(e) => setPassword(e.target.value)} disabled={pending} />
+            <button className="btn btn-primary" type="submit" disabled={pending}>
+              {pending ? "Выполняется вход…" : "Войти"}
+            </button>
           </form>
           <p className="foot">
             Нет аккаунта?{" "}
-            <button className="link" onClick={goRegister}>Зарегистрироваться</button>
+            <button className="link" type="button" onClick={goRegister} disabled={pending}>Зарегистрироваться</button>
           </p>
         </>
       ) : (
