@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,13 +13,20 @@ from app.api.word_bank import router as word_bank_router
 from app.config import settings
 from app.core.errors import ServiceError, service_error_handler
 from app.database import engine, init_models
+from app.services.lobby_rounds import run_rounds
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await init_models()
-    yield
-    await engine.dispose()
+    round_worker = asyncio.create_task(run_rounds())
+    try:
+        yield
+    finally:
+        round_worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await round_worker
+        await engine.dispose()
 
 
 app = FastAPI(

@@ -1,7 +1,7 @@
 import re
 import secrets
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, load_only, selectinload
@@ -10,7 +10,17 @@ from app.api.deps import LobbyIdentity
 from app.core.errors import ServiceError
 from app.models.game import GameStatus
 from app.models.lobby import Lobby, LobbyPlayer
-from app.schemas.lobby import CreateLobbyRequest, LobbyPlayerDto, LobbyRoom, LobbySettings, LobbySummary
+from app.models.lobby_auction import LobbyAuctionBid, LobbyAuctionLot
+from app.models.lobby_round import LobbyRound, LobbyWordSubmission
+from app.schemas.lobby import (
+    CreateLobbyRequest, LobbyAuctionDto, LobbyBuildingDto, LobbyPlayerDto, LobbyResultsDto,
+    LobbyRoom, LobbySettings, LobbySummary, LotResult,
+)
+from app.services.lobby_auction import latest_lot
+from app.services.lobby_rounds import (
+    advance_due, complete_building, current_round, db_now, inventory, restore_round,
+    start_round, validate_words,
+)
 from app.util.word_bank import default_words
 
 
@@ -71,11 +81,13 @@ def room_view(lobby: Lobby, players: list[LobbyPlayer], actor: LobbyIdentity) ->
 async def locked_room(session: AsyncSession, code: str) -> tuple[Lobby, list[LobbyPlayer]]:
     lobby = await session.scalar(
         select(Lobby).where(Lobby.code == normalize_code(code)).with_for_update()
+        .execution_options(populate_existing=True)
     )
     if lobby is None:
         raise ServiceError("Лобби не найдено", 404)
     players = await session.scalars(
         select(LobbyPlayer).where(LobbyPlayer.lobby_id == lobby.id).order_by(LobbyPlayer.id)
+        .execution_options(populate_existing=True)
     )
     return lobby, list(players)
 
@@ -120,14 +132,88 @@ async def list_lobbies(session: AsyncSession, actor: LobbyIdentity) -> list[Lobb
     return summaries
 
 
-async def get_room(session: AsyncSession, actor: LobbyIdentity, code: str) -> LobbyRoom:
-    rows = await session.execute(
-        select(Lobby).where(Lobby.code == normalize_code(code)).options(joinedload(Lobby.players))
+async def read_room(session: AsyncSession, actor: LobbyIdentity, code: str) -> LobbyRoom:
+    own_player_id = select(LobbyPlayer.id).where(LobbyPlayer.actor_key == actor.key).scalar_subquery()
+    latest_lot_id = (
+        select(LobbyAuctionLot.id)
+        .where(LobbyAuctionLot.lobby_id == Lobby.id, LobbyAuctionLot.round_number == Lobby.current_round)
+        .order_by(LobbyAuctionLot.number.desc())
+        .limit(1)
+        .correlate(Lobby)
+        .scalar_subquery()
     )
-    lobby = rows.unique().scalar_one_or_none()
-    if lobby is None:
+    rows = await session.execute(
+        select(
+            Lobby, LobbyRound, LobbyAuctionLot, LobbyAuctionBid.amount,
+            LobbyWordSubmission, func.statement_timestamp(),
+        )
+        .outerjoin(LobbyRound, and_(LobbyRound.lobby_id == Lobby.id, LobbyRound.number == Lobby.current_round))
+        .outerjoin(LobbyAuctionLot, and_(Lobby.status == GameStatus.AUCTION, LobbyAuctionLot.id == latest_lot_id))
+        .outerjoin(LobbyAuctionBid, and_(
+            LobbyAuctionBid.lot_id == LobbyAuctionLot.id, LobbyAuctionBid.player_id == own_player_id,
+        ))
+        .outerjoin(LobbyWordSubmission, and_(
+            Lobby.status == GameStatus.BUILDING, LobbyWordSubmission.lobby_id == Lobby.id,
+            LobbyWordSubmission.round_number == Lobby.current_round,
+            LobbyWordSubmission.player_id == own_player_id,
+        ))
+        .where(Lobby.code == normalize_code(code))
+        .options(joinedload(Lobby.players))
+        .execution_options(populate_existing=True)
+    )
+    row = rows.unique().one_or_none()
+    if row is None:
         raise ServiceError("Лобби не найдено", 404)
-    return room_view(lobby, lobby.players, actor)
+    lobby, round_, lot, my_bid, submission, server_time = row
+    room = room_view(lobby, lobby.players, actor)
+
+    if round_ is None:
+        return room
+    if round_.results is not None:
+        room.results = LobbyResultsDto(
+            **round_.results, ends_at=round_.phase_ends_at, server_time=server_time if round_.phase_ends_at else None
+        )
+        return room
+
+    closed = select(LobbyAuctionLot).where(
+        LobbyAuctionLot.lobby_id == lobby.id, LobbyAuctionLot.round_number == round_.number,
+        LobbyAuctionLot.closed_at.is_not(None),
+    )
+    if lot is not None:
+        closed = closed.where(LobbyAuctionLot.number < lot.number)
+    closed_lots = await session.scalars(closed.order_by(LobbyAuctionLot.number))
+    names = {player.id: player.nick for player in lobby.players}
+    history = [
+        LotResult(
+            number=item.number, letter=item.letter, winner_player_id=item.winner_player_id,
+            winner_nick=names.get(item.winner_player_id), winning_amount=item.winning_amount,
+        )
+        for item in closed_lots
+    ]
+    letters = [item.letter for item in history if item.winner_player_id == room.my_player_id]
+    if lot is not None:
+        room.auction = LobbyAuctionDto(
+            id=lot.id, number=lot.number, lot_count=len(round_.letters), letter=lot.letter,
+            ends_at=lot.ends_at, server_time=server_time, my_bid=my_bid, my_letters=letters, closed_lots=history,
+        )
+    elif lobby.status == GameStatus.BUILDING:
+        room.building = LobbyBuildingDto(
+            ends_at=round_.phase_ends_at, server_time=server_time, letters=letters,
+            word_bank=lobby.words, submitted_words=submission.words if submission else None, closed_lots=history,
+        )
+    return room
+
+
+async def get_room(session: AsyncSession, actor: LobbyIdentity, code: str) -> LobbyRoom:
+    room = await read_room(session, actor, code)
+    if room.status == GameStatus.AUCTION and room.auction is None:
+        lobby, players = await locked_room(session, code)
+        require_player(players, actor)
+        if lobby.status == GameStatus.AUCTION:
+            await restore_round(session, lobby)
+        await session.commit()
+        return await read_room(session, actor, code)
+    return room
 
 
 async def create_lobby(
@@ -156,6 +242,8 @@ async def join_lobby(session: AsyncSession, actor: LobbyIdentity, code: str) -> 
             raise ServiceError("В этом лобби нет свободных мест")
         players.append(await add_player(session, lobby, actor))
     await session.commit()
+    if lobby.status != GameStatus.LOBBY:
+        return await get_room(session, actor, code)
     return room_view(lobby, players, actor)
 
 
@@ -190,8 +278,9 @@ async def start_game(session: AsyncSession, actor: LobbyIdentity, code: str) -> 
     lobby, players = await locked_room(session, code)
     require_host(players, actor)
     if lobby.status == GameStatus.AUCTION:
+        await restore_round(session, lobby)
         await session.commit()
-        return room_view(lobby, players, actor)
+        return await read_room(session, actor, code)
     require_waiting(lobby)
     if len(players) < 2 or any(not p.ready for p in players):
         raise ServiceError("Нужны хотя бы два игрока. Все должны подтвердить готовность")
@@ -200,10 +289,76 @@ async def start_game(session: AsyncSession, actor: LobbyIdentity, code: str) -> 
         secrets.SystemRandom().shuffle(order)
     for position, player in enumerate(order, start=1):
         player.turn_position = position
-    lobby.status = GameStatus.AUCTION
-    lobby.current_round = 1
+    start_round(session, lobby, 1, await db_now(session))
     await session.commit()
-    return room_view(lobby, players, actor)
+    return await read_room(session, actor, code)
+
+
+async def submit_bid(
+    session: AsyncSession, actor: LobbyIdentity, code: str, lot_id: int, amount: int
+) -> LobbyRoom:
+    lobby, players = await locked_room(session, code)
+    player = require_player(players, actor)
+    if lobby.status != GameStatus.AUCTION:
+        raise ServiceError("Ставку можно сделать во время аукциона")
+    lot = await latest_lot(session, lobby)
+    round_ = await current_round(session, lobby)
+    if lot is None or round_ is None or lot.id != lot_id:
+        raise ServiceError("Этот лот уже недоступен")
+    now = await db_now(session)
+    if lot.closed_at is not None or lot.ends_at <= now:
+        if await advance_due(session, lobby, round_, now):
+            await session.commit()
+        raise ServiceError("Приём ставок завершён")
+    if not 1 <= amount <= player.balance:
+        raise ServiceError("Ставка должна быть в пределах доступного баланса", 400)
+
+    await session.execute(
+        insert(LobbyAuctionBid).values(lot_id=lot.id, player_id=player.id, amount=amount)
+        .on_conflict_do_update(index_elements=[LobbyAuctionBid.lot_id, LobbyAuctionBid.player_id],
+                               set_={"amount": amount})
+    )
+    await session.commit()
+    return await read_room(session, actor, code)
+
+
+async def submit_words(
+    session: AsyncSession, actor: LobbyIdentity, code: str, round_number: int, words: list[str]
+) -> LobbyRoom:
+    lobby, players = await locked_room(session, code)
+    player = require_player(players, actor)
+    round_ = await current_round(session, lobby)
+    if lobby.status != GameStatus.BUILDING or round_ is None or round_.number != round_number:
+        raise ServiceError("Приём слов для этого раунда закрыт")
+    now = await db_now(session)
+    if now >= round_.phase_ends_at:
+        await complete_building(session, lobby, round_, now)
+        await session.commit()
+        raise ServiceError("Время сборки слов закончилось")
+    existing = await session.scalar(select(LobbyWordSubmission.id).where(
+        LobbyWordSubmission.lobby_id == lobby.id, LobbyWordSubmission.round_number == round_number,
+        LobbyWordSubmission.player_id == player.id,
+    ))
+    if existing is not None:
+        raise ServiceError("Слова уже отправлены")
+    letters = await inventory(session, round_)
+    normalized = validate_words(words, lobby.words, letters.get(player.id, []))
+    session.add(LobbyWordSubmission(
+        lobby_id=lobby.id, round_number=round_number, player_id=player.id, words=normalized
+    ))
+    await complete_building(session, lobby, round_, now)
+    await session.commit()
+    return await read_room(session, actor, code)
+
+
+async def next_round(session: AsyncSession, actor: LobbyIdentity, code: str, round_number: int) -> LobbyRoom:
+    lobby, players = await locked_room(session, code)
+    require_host(players, actor)
+    if lobby.status != GameStatus.ROUND_RESULTS or lobby.current_round != round_number:
+        raise ServiceError("Этот раунд уже недоступен")
+    start_round(session, lobby, round_number + 1, await db_now(session))
+    await session.commit()
+    return await read_room(session, actor, code)
 
 
 async def leave_lobby(session: AsyncSession, actor: LobbyIdentity, code: str | None = None) -> None:
@@ -227,5 +382,11 @@ async def leave_lobby(session: AsyncSession, actor: LobbyIdentity, code: str | N
     elif lobby.status == GameStatus.LOBBY:
         await session.delete(player)
     else:
+        round_ = await current_round(session, lobby)
+        now = await db_now(session)
+        if round_ is not None and lobby.status in (GameStatus.AUCTION, GameStatus.BUILDING):
+            await advance_due(session, lobby, round_, now)
         player.actor_key = None
+        if round_ is not None and lobby.status == GameStatus.BUILDING:
+            await complete_building(session, lobby, round_, now)
     await session.commit()

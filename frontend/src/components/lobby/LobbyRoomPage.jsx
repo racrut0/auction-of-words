@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { plural } from "../../lib/lobby.js";
+import { formatCoins, plural } from "../../lib/lobby.js";
 import { lobbyService } from "../../services/lobbies.js";
+import AuctionPanel from "./AuctionPanel.jsx";
+import RoundResultsPanel from "./RoundResultsPanel.jsx";
+import WordBuildingPanel from "./WordBuildingPanel.jsx";
 
 const STEPS = [
   ["LOBBY", "Ожидание"],
@@ -62,6 +65,7 @@ export default function LobbyRoomPage({ token, query, onBack }) {
 
   const isCreator = lobby.creatorId === player.id;
   const waiting = lobby.status === "LOBBY";
+  const auction = lobby.auction?.closedLots ? lobby.auction : null;
   const activePlayers = lobby.players.filter((item) => !item.left);
   const readyCount = activePlayers.filter((item) => item.ready).length;
   const allReady = readyCount === activePlayers.length;
@@ -80,13 +84,22 @@ export default function LobbyRoomPage({ token, query, onBack }) {
       </ol>
       <div className="room-grid">
         <div className="room-main">
+          {auction && <AuctionPanel key={auction.id} auction={auction} balance={player.balance} pending={pending}
+            onBid={(amount) => act(() => lobbyService.bid(lobby.code, token, auction.id, amount))} />}
+          {lobby.building && <WordBuildingPanel key={lobby.currentRound} building={lobby.building} pending={pending}
+            onSubmit={(words) => act(() => lobbyService.submitWords(lobby.code, token, lobby.currentRound, words))} />}
+          {lobby.results && <RoundResultsPanel key={lobby.currentRound} results={lobby.results}
+            playerId={player.id} finished={lobby.status === "FINISHED"} pending={pending}
+            onNext={isCreator && lobby.status === "ROUND_RESULTS"
+              ? () => act(() => lobbyService.nextRound(lobby.code, token, lobby.currentRound)) : undefined} />}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <section className="panel players-panel" aria-labelledby="players-title"><h2 id="players-title">Игроки</h2>
-            <table className="data-table players-table"><thead><tr><th>Имя</th><th>Роль</th><th>Состояние</th><th><span className="visually-hidden">Действия</span></th></tr></thead>
+            <table className="data-table players-table"><thead><tr><th>Имя</th><th>Роль</th><th>{waiting ? "Состояние" : "Баланс"}</th><th><span className="visually-hidden">Действия</span></th></tr></thead>
               <tbody>{lobby.players.map((item) => <tr key={item.id}>
                 <td className={item.id === player.id ? "current-player" : ""}>{item.nick}</td>
                 <td className="muted">{item.id === lobby.creatorId ? "Создатель" : "Игрок"}</td>
-                <td className={item.ready && !item.left ? "ready-status" : "muted"}>
-                  {item.left ? "Покинул партию" : item.ready ? "Готов" : "Не готов"}
+                <td className={waiting && item.ready && !item.left ? "ready-status" : "muted"}>
+                  {item.left ? "Покинул партию" : waiting ? (item.ready ? "Готов" : "Не готов") : formatCoins(item.balance)}
                 </td>
                 <td className="table-action">{waiting && isCreator && item.id !== player.id && (
                   <button className="btn" disabled={pending}
@@ -110,12 +123,11 @@ export default function LobbyRoomPage({ token, query, onBack }) {
                   onClick={() => act(() => lobbyService.start(lobby.code, token))}>Начать партию</button>}
               </div>
             </section>
-          ) : (
+          ) : !auction && !lobby.building && !lobby.results && (
             <section className="panel readiness-panel" role="status">
-              <p>Партия началась. Текущий этап — {STEPS.find(([status]) => status === currentStep)?.[1].toLowerCase()}.</p>
+              <p>Ожидаем данные раунда.</p>
             </section>
           )}
-          {error && <p className="form-error" role="alert">{error}</p>}
           {query.error && <p className="form-error" role="alert">{query.error.message}{" "}
             <button className="link" onClick={() => query.refresh()}>Обновить</button>
           </p>}
@@ -125,7 +137,7 @@ export default function LobbyRoomPage({ token, query, onBack }) {
         </div>
         <aside className="room-sidebar">
           <section className="panel party-summary" aria-labelledby="party-title"><h2 id="party-title">Партия</h2>
-            <dl><div><dt>Стартовый капитал</dt><dd>{lobby.settings.startingCoins} {plural(lobby.settings.startingCoins, ["монета", "монеты", "монет"])}</dd></div>
+            <dl><div><dt>Стартовый капитал</dt><dd>{formatCoins(lobby.settings.startingCoins)}</dd></div>
               <div><dt>Раундов</dt><dd>{lobby.settings.rounds}</dd></div>
               <div><dt>Банк слов</dt><dd>{lobby.wordCount} {plural(lobby.wordCount, ["слово", "слова", "слов"])}</dd></div>
               <div><dt>Штраф за букву</dt><dd>{lobby.settings.letterPenalty} {plural(lobby.settings.letterPenalty, ["очко", "очка", "очков"])}</dd></div></dl>

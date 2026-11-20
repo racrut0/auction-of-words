@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import Literal
 
 from pydantic import Field, field_validator
@@ -34,6 +35,19 @@ class ReadyRequest(CamelModel):
     ready: bool = Field(strict=True)
 
 
+class BidRequest(CamelModel):
+    lot_id: int = Field(strict=True, ge=1)
+    amount: int = Field(strict=True, ge=1)
+
+
+class RoundRequest(CamelModel):
+    round_number: int = Field(strict=True, ge=1)
+
+
+class SubmitWordsRequest(RoundRequest):
+    words: list[str] = Field(max_length=30)
+
+
 class LobbySummary(CamelModel):
     code: str
     status: GameStatus
@@ -52,6 +66,60 @@ class LobbyPlayerDto(CamelModel):
     left: bool
 
 
+class LotResult(CamelModel):
+    number: int
+    letter: str
+    winner_player_id: int | None
+    winner_nick: str | None
+    winning_amount: int | None
+
+
+class LobbyAuctionDto(CamelModel):
+    id: int
+    number: int
+    lot_count: int
+    letter: str
+    ends_at: datetime
+    server_time: datetime
+    my_bid: int | None
+    my_letters: list[str]
+    closed_lots: list[LotResult]
+
+
+class LobbyBuildingDto(CamelModel):
+    ends_at: datetime
+    server_time: datetime
+    letters: list[str]
+    word_bank: list[str]
+    submitted_words: list[str] | None
+    closed_lots: list[LotResult]
+
+
+class ScoredWord(CamelModel):
+    word: str
+    points: int
+    unique: bool
+
+
+class PlayerRoundResult(CamelModel):
+    player_id: int
+    nick: str
+    words: list[ScoredWord]
+    first_bonus: int
+    unused_letters: int
+    letter_penalty: int
+    round_points: int
+    coin_bonus: float
+    total_points: float
+
+
+class LobbyResultsDto(CamelModel):
+    players: list[PlayerRoundResult]
+    winner_ids: list[int]
+    ends_at: datetime | None = None
+    server_time: datetime | None = None
+
+
 class LobbyRoom(CamelModel):
     id: int
     code: str
@@ -62,3 +130,6 @@ class LobbyRoom(CamelModel):
     settings: LobbySettings
     word_count: int
     players: list[LobbyPlayerDto]
+    auction: LobbyAuctionDto | None = None
+    building: LobbyBuildingDto | None = None
+    results: LobbyResultsDto | None = None

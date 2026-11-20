@@ -24,6 +24,15 @@ export const lobbyService = {
   start(code, token) {
     return request(`${roomPath(code)}/start`, { method: "POST", token });
   },
+  bid(code, token, lotId, amount) {
+    return request(`${roomPath(code)}/auction/bid`, { method: "PUT", token, data: { lotId, amount } });
+  },
+  submitWords(code, token, roundNumber, words) {
+    return request(`${roomPath(code)}/words`, { method: "POST", token, data: { roundNumber, words } });
+  },
+  nextRound(code, token, roundNumber) {
+    return request(`${roomPath(code)}/round/next`, { method: "POST", token, data: { roundNumber } });
+  },
   removePlayer(code, token, playerId) {
     return request(`${roomPath(code)}/players/${playerId}`, { method: "DELETE", token });
   },

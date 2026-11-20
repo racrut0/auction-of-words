@@ -1,7 +1,9 @@
 from fastapi import APIRouter
 
 from app.api.deps import DbSession, LobbyActor
-from app.schemas.lobby import CreateLobbyRequest, LobbyRoom, LobbySummary, ReadyRequest
+from app.schemas.lobby import (
+    BidRequest, CreateLobbyRequest, LobbyRoom, LobbySummary, ReadyRequest, RoundRequest, SubmitWordsRequest,
+)
 from app.services import lobbies
 
 
@@ -36,6 +38,21 @@ async def set_ready(code: str, request: ReadyRequest, session: DbSession, actor:
 @router.post("/{code}/start")
 async def start_game(code: str, session: DbSession, actor: LobbyActor) -> LobbyRoom:
     return await lobbies.start_game(session, actor, code)
+
+
+@router.put("/{code}/auction/bid")
+async def submit_bid(code: str, request: BidRequest, session: DbSession, actor: LobbyActor) -> LobbyRoom:
+    return await lobbies.submit_bid(session, actor, code, request.lot_id, request.amount)
+
+
+@router.post("/{code}/words")
+async def submit_words(code: str, request: SubmitWordsRequest, session: DbSession, actor: LobbyActor) -> LobbyRoom:
+    return await lobbies.submit_words(session, actor, code, request.round_number, request.words)
+
+
+@router.post("/{code}/round/next")
+async def next_round(code: str, request: RoundRequest, session: DbSession, actor: LobbyActor) -> LobbyRoom:
+    return await lobbies.next_round(session, actor, code, request.round_number)
 
 
 @router.delete("/membership")

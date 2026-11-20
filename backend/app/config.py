@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,9 +31,10 @@ class Settings(BaseSettings):
 
     game_starting_capital: int = 100
     game_rounds: int = 3
-    game_letters_per_auction: int = 5
-    game_auction_seconds: int = 60
-    game_build_timeout_seconds: int = 40
+    game_letters_per_auction: int = Field(default=16, ge=2, le=60)
+    game_auction_seconds: int = Field(default=10, ge=1)
+    game_build_timeout_seconds: int = Field(default=40, ge=1)
+    game_results_seconds: int = Field(default=15, ge=1)
 
     @field_validator("cors_origins", mode="before")
     @classmethod
