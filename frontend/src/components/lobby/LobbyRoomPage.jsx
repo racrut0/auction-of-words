@@ -1,11 +1,23 @@
 import { useEffect, useState } from "react";
-import { plural } from "../../lib/lobby.js";
+import { formatCoins, plural } from "../../lib/lobby.js";
 import { lobbyService } from "../../services/lobbies.js";
+import AuctionPanel from "./AuctionPanel.jsx";
+import RoundResultsPanel from "./RoundResultsPanel.jsx";
+import WordBuildingPanel from "./WordBuildingPanel.jsx";
 
-export default function LobbyRoomPage({ user, lobby, onBack }) {
+const STEPS = [
+  ["LOBBY", "Ожидание"],
+  ["AUCTION", "Аукцион"],
+  ["BUILDING", "Сборка слов"],
+  ["ROUND_RESULTS", "Результаты"],
+];
+
+export default function LobbyRoomPage({ token, query, onBack }) {
+  const lobby = query.data;
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const player = lobby?.players.find((item) => item.id === user.id);
+  const [pending, setPending] = useState(false);
+  const player = lobby?.players.find((item) => item.id === lobby.myPlayerId);
 
   useEffect(() => {
     if (!copied) return;
@@ -13,8 +25,19 @@ export default function LobbyRoomPage({ user, lobby, onBack }) {
     return () => window.clearTimeout(timeout);
   }, [copied]);
 
-  function act(action) {
-    try { action(); setError(""); } catch (e) { setError(e.message); }
+  async function act(action, leave = false) {
+    if (pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const result = await action();
+      if (leave) onBack();
+      else query.refresh(result);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setPending(false);
+    }
   }
 
   async function copyCode() {
@@ -28,48 +51,95 @@ export default function LobbyRoomPage({ user, lobby, onBack }) {
   }
 
   if (!lobby || !player) return <section className="lobby-page">
-    <div className="panel missing-lobby"><h1>{lobby ? "Участие в лобби завершено" : "Лобби не найдено"}</h1>
-      <p>{lobby ? "Можно вернуться к списку доступных лобби." : "Лобби закрыто или код приглашения изменился."}</p>
-      <button className="btn btn-soft" onClick={onBack}>Вернуться в лобби</button></div>
+    <div className="panel missing-lobby">
+      <h1>{query.loading ? "Загрузка лобби…" : "Комната недоступна"}</h1>
+      {query.error && <p role="alert">{query.error.message}</p>}
+      <div className="profile-form-actions">
+        <button className="btn btn-soft" onClick={onBack}>Вернуться в лобби</button>
+        {query.error && ![403, 404].includes(query.error.status) && (
+          <button className="btn" onClick={() => query.refresh()}>Повторить</button>
+        )}
+      </div>
+    </div>
   </section>;
 
-  const isCreator = lobby.creatorId === user.id;
-  const readyCount = lobby.players.filter((item) => item.ready).length;
-  const allReady = readyCount === lobby.players.length;
+  const isCreator = lobby.creatorId === player.id;
+  const waiting = lobby.status === "LOBBY";
+  const auction = lobby.auction?.closedLots ? lobby.auction : null;
+  const activePlayers = lobby.players.filter((item) => !item.left);
+  const readyCount = activePlayers.filter((item) => item.ready).length;
+  const allReady = readyCount === activePlayers.length;
+  const canStart = allReady && activePlayers.length >= 2;
+  const currentStep = lobby.status === "FINISHED" ? "ROUND_RESULTS" : lobby.status;
 
   return (
     <section className="lobby-page" aria-labelledby="room-title">
       <div className="page-heading room-heading"><h1 id="room-title">Лобби {lobby.code}</h1>
-        <p>{lobby.players.length} из {lobby.settings.maxPlayers} мест занято</p></div>
+        <p>{waiting
+          ? `${activePlayers.length} из ${lobby.settings.maxPlayers} мест занято`
+          : `Раунд ${lobby.currentRound} из ${lobby.settings.rounds}`}</p></div>
       <ol className="game-steps" aria-label="Этапы партии">
-        {["Ожидание", "Аукцион", "Сборка слов", "Результаты"].map((step, index) => <li key={step} className={index === 0 ? "current" : ""} aria-current={index === 0 ? "step" : undefined}>{step}</li>)}
+        {STEPS.map(([status, label]) => <li key={status} className={status === currentStep ? "current" : ""}
+          aria-current={status === currentStep ? "step" : undefined}>{label}</li>)}
       </ol>
       <div className="room-grid">
         <div className="room-main">
+          {auction && <AuctionPanel key={auction.id} auction={auction} balance={player.balance} pending={pending}
+            onBid={(amount) => act(() => lobbyService.bid(lobby.code, token, auction.id, amount))} />}
+          {lobby.building && <WordBuildingPanel key={lobby.currentRound} building={lobby.building} pending={pending}
+            onSubmit={(words) => act(() => lobbyService.submitWords(lobby.code, token, lobby.currentRound, words))} />}
+          {lobby.results && <RoundResultsPanel key={lobby.currentRound} results={lobby.results}
+            playerId={player.id} finished={lobby.status === "FINISHED"} pending={pending}
+            onNext={isCreator && lobby.status === "ROUND_RESULTS"
+              ? () => act(() => lobbyService.nextRound(lobby.code, token, lobby.currentRound)) : undefined} />}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <section className="panel players-panel" aria-labelledby="players-title"><h2 id="players-title">Игроки</h2>
-            <table className="data-table players-table"><thead><tr><th>Имя</th><th>Роль</th><th>Состояние</th><th><span className="visually-hidden">Действия</span></th></tr></thead>
+            <table className="data-table players-table"><thead><tr><th>Имя</th><th>Роль</th><th>{waiting ? "Состояние" : "Баланс"}</th><th><span className="visually-hidden">Действия</span></th></tr></thead>
               <tbody>{lobby.players.map((item) => <tr key={item.id}>
-                <td className={item.id === user.id ? "current-player" : ""}>{item.nick}</td>
+                <td className={item.id === player.id ? "current-player" : ""}>{item.nick}</td>
                 <td className="muted">{item.id === lobby.creatorId ? "Создатель" : "Игрок"}</td>
-                <td className={item.ready ? "ready-status" : "muted"}>{item.ready ? "Готов" : "Не готов"}</td>
-                <td className="table-action">{isCreator && item.id !== user.id && <button className="btn" onClick={() => act(() => lobbyService.removePlayer(lobby.code, user.id, item.id))} aria-label={`Исключить игрока ${item.nick}`}>Исключить</button>}</td>
+                <td className={waiting && item.ready && !item.left ? "ready-status" : "muted"}>
+                  {item.left ? "Покинул партию" : waiting ? (item.ready ? "Готов" : "Не готов") : formatCoins(item.balance)}
+                </td>
+                <td className="table-action">{waiting && isCreator && item.id !== player.id && (
+                  <button className="btn" disabled={pending}
+                    onClick={() => act(() => lobbyService.removePlayer(lobby.code, token, item.id))}
+                    aria-label={`Исключить игрока ${item.nick}`}>Исключить</button>
+                )}</td>
               </tr>)}</tbody>
             </table>
           </section>
-          <section className="panel readiness-panel" aria-label="Готовность к партии">
-            <p>{allReady ? lobby.players.length === 1 ? "Ожидание остальных игроков" : `Все ${lobby.players.length} ${plural(lobby.players.length, ["игрок", "игрока", "игроков"])} готовы` : `Готовы ${readyCount} из ${lobby.players.length}`}</p>
-            <div className="readiness-actions"><button className={`btn${player.ready ? " btn-soft" : " btn-primary"}`} aria-pressed={player.ready} onClick={() => act(() => lobbyService.toggleReady(lobby.code, user.id))}>{player.ready ? "Готов" : "Подтвердить готовность"}</button>
-              {isCreator && <button className="btn btn-primary" disabled title="Начало партии пока недоступно">Начать партию</button>}</div>
-          </section>
-          {error && <p className="form-error" role="alert">{error}</p>}
+          {waiting ? (
+            <section className="panel readiness-panel" aria-label="Готовность к партии">
+              <p>{activePlayers.length === 1
+                ? "Ожидание второго игрока"
+                : allReady ? "Все игроки готовы" : `Готовы ${readyCount} из ${activePlayers.length}`}</p>
+              <div className="readiness-actions">
+                <button className={`btn${player.ready ? " btn-soft" : " btn-primary"}`} aria-pressed={player.ready}
+                  disabled={pending} onClick={() => act(() => lobbyService.setReady(lobby.code, token, !player.ready))}>
+                  {player.ready ? "Готов" : "Подтвердить готовность"}
+                </button>
+                {isCreator && <button className="btn btn-primary" disabled={!canStart || pending}
+                  onClick={() => act(() => lobbyService.start(lobby.code, token))}>Начать партию</button>}
+              </div>
+            </section>
+          ) : !auction && !lobby.building && !lobby.results && (
+            <section className="panel readiness-panel" role="status">
+              <p>Ожидаем данные раунда.</p>
+            </section>
+          )}
+          {query.error && <p className="form-error" role="alert">{query.error.message}{" "}
+            <button className="link" onClick={() => query.refresh()}>Обновить</button>
+          </p>}
           <div className="page-footer-actions"><button className="btn btn-soft" type="button" onClick={onBack}>Вернуться в лобби</button>
-            <button className="btn btn-danger leave-lobby" type="button" onClick={() => act(() => { lobbyService.leave(user.id, lobby.code); onBack(); })}>Выйти из партии</button></div>
+            <button className="btn btn-danger leave-lobby" type="button" disabled={pending}
+              onClick={() => act(() => lobbyService.leave(lobby.code, token), true)}>Выйти из партии</button></div>
         </div>
         <aside className="room-sidebar">
           <section className="panel party-summary" aria-labelledby="party-title"><h2 id="party-title">Партия</h2>
-            <dl><div><dt>Стартовый капитал</dt><dd>{lobby.settings.startingCoins} {plural(lobby.settings.startingCoins, ["монета", "монеты", "монет"])}</dd></div>
+            <dl><div><dt>Стартовый капитал</dt><dd>{formatCoins(lobby.settings.startingCoins)}</dd></div>
               <div><dt>Раундов</dt><dd>{lobby.settings.rounds}</dd></div>
-              <div><dt>Банк слов</dt><dd>{lobby.words.length} {plural(lobby.words.length, ["слово", "слова", "слов"])}</dd></div>
+              <div><dt>Банк слов</dt><dd>{lobby.wordCount} {plural(lobby.wordCount, ["слово", "слова", "слов"])}</dd></div>
               <div><dt>Штраф за букву</dt><dd>{lobby.settings.letterPenalty} {plural(lobby.settings.letterPenalty, ["очко", "очка", "очков"])}</dd></div></dl>
           </section>
           <section className="panel invitation-panel" aria-labelledby="invitation-title"><h2 id="invitation-title">Код приглашения</h2>

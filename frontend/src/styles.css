@@ -137,6 +137,44 @@ select:focus-visible { outline: 0; border-color: var(--accent); box-shadow: 0 0 
 .room-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
 .room-main, .room-sidebar { display: flex; flex-direction: column; gap: 24px; }
 .room-main > .page-footer-actions { margin-top: 0; }
+.auction-clock { color: var(--muted); font-size: 14px; white-space: nowrap; }
+.auction-clock strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.auction-details { display: flex; align-items: stretch; gap: 32px; margin-bottom: 20px; }
+.auction-details > div { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+.auction-details span { color: var(--muted); font-size: 14px; }
+.auction-details strong { display: inline-flex; align-items: center; min-height: 54px; font-size: 24px; }
+.auction-details .auction-letter { justify-content: center; width: 54px; background: var(--accent-soft); border-radius: 5px; color: var(--accent-dark); font-size: 32px; }
+.auction-bid { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.auction-bid .field { width: 160px; }
+.auction-bid-status { margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+.auction-result { display: grid; gap: 8px; padding: 14px 16px; background: var(--accent-soft); border-radius: 5px; overflow-wrap: anywhere; }
+.auction-result p { margin: 0; }
+.stage-caption { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.round-section { margin-top: 20px; }
+.lot-history { margin-top: 16px; color: var(--muted); font-size: 14px; }
+.lot-history summary { width: fit-content; color: var(--accent-dark); cursor: pointer; }
+.lot-history ol { margin-bottom: 0; padding-left: 24px; }
+.lot-history li { padding: 4px 0; }
+.lot-history li strong { display: inline-block; width: 28px; color: var(--text); }
+.building-letters p { margin: 8px 0; }
+.letter-tiles { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.letter-tiles li { display: grid; min-width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--accent-soft); font-weight: 700; }
+.letter-tiles .used { background: var(--bg); color: var(--muted); }
+.building-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(190px, 1fr); gap: 16px; }
+.building-grid h3, .round-score h3 { margin: 0 0 12px; font-size: 18px; }
+.building-bank { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 280px; overflow: auto; padding: 4px; }
+.building-bank .btn { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; min-height: 36px; font-size: 14px; text-align: left; overflow-wrap: anywhere; }
+.building-bank .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-soft); }
+.building-selection, .round-score { padding: 14px; border: 1px solid var(--line); border-radius: 5px; }
+.building-selection p { margin: 0 0 12px; }
+.building-selection ul { padding-left: 18px; overflow-wrap: anywhere; }
+.building-selection .btn { margin-top: 4px; width: 100%; }
+.results-table { margin-top: 12px; }
+.results-table th { background: var(--bg); }
+.results-table th:nth-last-child(-n+2), .results-table td:nth-last-child(-n+2) { text-align: right; }
+.round-score dl { margin: 0; }
+.round-score dl div { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; }
+.round-score dd { margin: 0; font-weight: 600; }
 .players-table { table-layout: fixed; }
 .players-table th, .players-table td { padding-left: 0; padding-right: 16px; }
 .players-table th:first-child { width: 32%; }

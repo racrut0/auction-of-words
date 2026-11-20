@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import uuid4
 
 import bcrypt
 import jwt
@@ -20,11 +21,17 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(user_id: int, username: str, role: str) -> str:
+    return _encode_access_token({"sub": username, "uid": user_id, "role": role})
+
+
+def create_guest_token(nick: str) -> str:
+    return _encode_access_token({"sub": str(uuid4()), "nick": nick, "role": "GUEST"})
+
+
+def _encode_access_token(claims: dict[str, Any]) -> str:
     now = datetime.now(timezone.utc)
     payload = {
-        "sub": username,
-        "uid": user_id,
-        "role": role,
+        **claims,
         "iat": now,
         "exp": now + timedelta(minutes=settings.jwt_expiration_minutes),
     }

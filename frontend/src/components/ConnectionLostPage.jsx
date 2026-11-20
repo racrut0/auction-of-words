@@ -1,12 +1,10 @@
 import { useState } from "react";
 
-// Экран «Соединение прервано» (US-06, Release 3). Без бэкенда повтор — имитация.
 export default function ConnectionLostPage({ gameCode = "R8M4K2", onBack }) {
   const [retrying, setRetrying] = useState(false);
 
   const retry = () => {
     setRetrying(true);
-    // TODO: когда появится бэкенд — повторно подключиться к партии
     setTimeout(() => setRetrying(false), 1500);
   };
 

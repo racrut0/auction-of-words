@@ -10,9 +10,9 @@ function readRoute() {
   return match ? { page: "room", code: match[1] } : { page: "list" };
 }
 
-export default function LobbyApp({ user }) {
+export default function LobbyApp({ user, onSessionExpired }) {
   const [route, setRoute] = useState(readRoute);
-  const lobbies = useLobbies();
+  const query = useLobbies(user.token, route.code, route.page !== "create");
 
   useEffect(() => {
     const update = () => { setRoute(readRoute()); window.scrollTo(0, 0); };
@@ -23,7 +23,17 @@ export default function LobbyApp({ user }) {
   const back = () => { window.location.hash = "lobby"; };
   const open = (code) => { window.location.hash = `lobby/${code}`; };
 
+  if (query.error?.status === 401) {
+    return <section className="lobby-page">
+      <div className="panel missing-lobby">
+        <h1>Нужно войти снова</h1>
+        <p role="alert">{query.error.message}</p>
+        <button className="btn btn-primary" onClick={onSessionExpired}>Войти снова</button>
+      </div>
+    </section>;
+  }
+
   if (route.page === "create") return <CreateLobbyPage user={user} onBack={back} onCreated={open} />;
-  if (route.page === "room") return <LobbyRoomPage key={route.code} user={user} lobby={lobbies.find((lobby) => lobby.code === route.code)} onBack={back} />;
-  return <LobbyPage user={user} lobbies={lobbies} onCreate={() => { window.location.hash = "lobby/new"; }} onOpen={open} />;
+  if (route.page === "room") return <LobbyRoomPage key={route.code} token={user.token} query={query} onBack={back} />;
+  return <LobbyPage token={user.token} query={query} onCreate={() => { window.location.hash = "lobby/new"; }} onOpen={open} />;
 }

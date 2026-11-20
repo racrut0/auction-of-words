@@ -1,12 +1,15 @@
 from fastapi import APIRouter
 
 from app.api.deps import DbSession
+from app.core.security import create_guest_token
 from app.schemas.auth import (
     AuthRequest,
     AuthResponse,
     ConfirmEmailRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
+    GuestRequest,
+    GuestResponse,
     ResetPasswordRequest,
 )
 from app.services import auth as auth_service
@@ -22,6 +25,11 @@ async def register(request: AuthRequest, session: DbSession) -> AuthResponse:
 @router.post("/login", response_model=AuthResponse)
 async def login(request: AuthRequest, session: DbSession) -> AuthResponse:
     return await auth_service.login(session, request)
+
+
+@router.post("/guest", response_model=GuestResponse)
+async def guest(request: GuestRequest) -> GuestResponse:
+    return GuestResponse(username=request.nick, token=create_guest_token(request.nick))
 
 
 @router.post("/confirm-email", response_model=ForgotPasswordResponse)

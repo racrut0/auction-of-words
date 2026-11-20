@@ -1,4 +1,3 @@
-// Правила проверки полей (US-01, US-02, US-03).
 export const MIN_PASSWORD = 6;
 const MAX_PASSWORD = 64;
 const MAX_PASSWORD_BYTES = 72;
@@ -7,7 +6,7 @@ const encoder = new TextEncoder();
 export function validateNick(nick) {
   const v = nick.trim();
   if (!/^[\p{L}\p{N}_\- ]{2,20}$/u.test(v)) {
-    return "Имя игрока: 2–20 символов (буквы, цифры, пробел, дефис).";
+    return "Имя игрока должно содержать от 2 до 20 символов. Допустимы буквы, цифры, пробел и дефис.";
   }
   return null;
 }

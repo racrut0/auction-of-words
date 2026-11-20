@@ -16,6 +16,10 @@ export function plural(number, forms) {
   return last >= 2 && last <= 4 ? forms[1] : forms[2];
 }
 
+export function formatCoins(amount) {
+  return `${amount} ${plural(amount, ["монета", "монеты", "монет"])}`;
+}
+
 export function parseWordBank(text) {
   const entries = text.replace(/^\uFEFF/, "").trim().split(/[\s,;]+/u).filter(Boolean);
   if (!entries.length) throw new Error("В файле нет слов.");
