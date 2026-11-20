@@ -29,8 +29,6 @@ class Settings(BaseSettings):
         "http://localhost:8080",
     ]
 
-    game_starting_capital: int = 100
-    game_rounds: int = 3
     game_letters_per_auction: int = Field(default=16, ge=2, le=60)
     game_auction_seconds: int = Field(default=10, ge=1)
     game_build_timeout_seconds: int = Field(default=40, ge=1)
