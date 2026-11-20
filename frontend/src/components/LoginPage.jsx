@@ -1,12 +1,17 @@
 import { useState } from "react";
 import Field from "./Field.jsx";
 import useAuthSubmit from "../hooks/useAuthSubmit.js";
-import { login } from "../services/account.js";
+import { login, loginGuest } from "../services/account.js";
 import { validateLogin, validateNick } from "../validation.js";
 
-export default function LoginPage({ onLogin, onGuest, goRegister }) {
+function loginRequest(credentials, signal) {
+  if ("nick" in credentials) return loginGuest(credentials, signal);
+  return login(credentials, signal);
+}
+
+export default function LoginPage({ onLogin, goRegister }) {
   const [tab, setTab] = useState("email");
-  const { submit, pending, error, setError } = useAuthSubmit(login, onLogin);
+  const { submit, pending, error, setError } = useAuthSubmit(loginRequest, onLogin);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [nick, setNick] = useState("");
@@ -30,7 +35,7 @@ export default function LoginPage({ onLogin, onGuest, goRegister }) {
     e.preventDefault();
     const err = validateNick(nick);
     setError(err);
-    if (!err) onGuest({ nick: nick.trim(), guest: true });
+    if (!err) void submit({ nick: nick.trim() });
   };
 
   return (
@@ -66,11 +71,13 @@ export default function LoginPage({ onLogin, onGuest, goRegister }) {
           </p>
         </>
       ) : (
-        <form onSubmit={submitGuest} noValidate>
+        <form onSubmit={submitGuest} noValidate aria-busy={pending}>
           <p className="hint">Без регистрации</p>
           <Field label="Имя игрока" id="nick" value={nick} maxLength={20}
-            onChange={(e) => setNick(e.target.value)} autoFocus />
-          <button className="btn btn-primary">Продолжить гостем</button>
+            onChange={(e) => setNick(e.target.value)} disabled={pending} autoFocus />
+          <button className="btn btn-primary" type="submit" disabled={pending}>
+            {pending ? "Выполняется вход…" : "Продолжить гостем"}
+          </button>
         </form>
       )}
     </section>

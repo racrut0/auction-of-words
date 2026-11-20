@@ -1,27 +1,38 @@
 import { useState } from "react";
 import { lobbyService } from "../../services/lobbies.js";
 
-export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
+export default function LobbyPage({ token, query, onCreate, onOpen }) {
+  const lobbies = query.data ?? [];
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [leaveError, setLeaveError] = useState("");
+  const [pending, setPending] = useState(false);
 
-  function join(value) {
+  async function join(value) {
+    if (pending) return;
+    setPending(true);
+    setError("");
     try {
-      const lobby = lobbyService.join(value, user);
-      setError("");
+      const lobby = await lobbyService.join(value, token);
       onOpen(lobby.code);
     } catch (e) {
       setError(e.message);
+    } finally {
+      setPending(false);
     }
   }
 
-  function leave(code) {
+  async function leave(code) {
+    if (pending) return;
+    setPending(true);
+    setLeaveError("");
     try {
-      lobbyService.leave(user.id, code);
-      setLeaveError("");
+      await lobbyService.leave(code, token);
+      query.refresh();
     } catch (e) {
       setLeaveError(e.message);
+    } finally {
+      setPending(false);
     }
   }
 
@@ -42,7 +53,7 @@ export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
                 spellCheck={false} aria-invalid={Boolean(error)} aria-describedby={error ? "join-error" : undefined}
                 onChange={(event) => { setCode(event.target.value.toUpperCase()); setError(""); }} />
             </label>
-            <button className="btn btn-primary" type="submit">Подключиться</button>
+            <button className="btn btn-primary" type="submit" disabled={pending}>Подключиться</button>
           </form>
           {error && <p className="form-error" id="join-error" role="alert">{error}</p>}
         </section>
@@ -50,34 +61,40 @@ export default function LobbyPage({ user, lobbies, onCreate, onOpen }) {
         <section className="panel new-lobby-panel" aria-labelledby="new-lobby-title">
           <h2 id="new-lobby-title">Новая партия</h2>
           <p>Параметры игры и банк слов</p>
-          <button className="btn btn-primary" onClick={onCreate}>Создать лобби</button>
+          <button className="btn btn-primary" onClick={onCreate} disabled={pending}>Создать лобби</button>
         </section>
       </div>
 
       <section className="panel available-lobbies" aria-labelledby="available-title">
         <h2 id="available-title">Доступные лобби</h2>
         {leaveError && <p className="form-error" role="alert">{leaveError}</p>}
+        {query.error && <p className="form-error" role="alert">{query.error.message}{" "}
+          <button className="link" onClick={() => query.refresh()}>Обновить</button>
+        </p>}
         <table className="data-table lobby-table">
           <thead><tr><th>Код</th><th>Создатель</th><th>Игроки</th><th>Состояние</th><th><span className="visually-hidden">Подключение</span></th></tr></thead>
           <tbody>
-            {lobbies.length === 0 && <tr><td colSpan={5} className="empty-state">Доступных лобби пока нет. Можно создать новую партию.</td></tr>}
+            {query.loading && <tr><td colSpan={5} className="empty-state">Загрузка лобби…</td></tr>}
+            {!query.loading && !query.error && lobbies.length === 0 && (
+              <tr><td colSpan={5} className="empty-state">Доступных лобби пока нет. Можно создать новую партию.</td></tr>
+            )}
             {lobbies.map((lobby) => {
-              const creator = lobby.players.find((player) => player.id === lobby.creatorId);
-              const isMember = lobby.players.some((player) => player.id === user.id);
-              const isFull = lobby.players.length >= lobby.settings.maxPlayers && !isMember;
-              const isStarted = lobby.status !== "waiting" && !isMember;
+              const { isMember } = lobby;
+              const waiting = lobby.status === "LOBBY";
+              const isFull = lobby.playerCount >= lobby.maxPlayers && !isMember;
               return (
                 <tr key={lobby.code}>
                   <td className="lobby-code">{lobby.code}</td>
-                  <td>{creator?.nick ?? "—"}</td>
-                  <td>{lobby.players.length} из {lobby.settings.maxPlayers}</td>
-                  <td className="muted">{lobby.status === "waiting" ? "Ожидание" : "Идёт игра"}</td>
+                  <td>{lobby.creatorNick}</td>
+                  <td>{lobby.playerCount} из {lobby.maxPlayers}</td>
+                  <td className="muted">{waiting ? "Ожидание" : "Идёт игра"}</td>
                   <td className="table-action"><div className="lobby-row-actions">
-                    <button className="btn btn-primary" disabled={isFull || isStarted}
-                      onClick={() => join(lobby.code)} aria-label={`${isMember ? "Открыть лобби" : "Подключиться к лобби"} ${lobby.code}`}>
-                      {isMember ? "Открыть" : isFull ? "Мест нет" : isStarted ? "Игра началась" : "Подключиться"}
+                    <button className="btn btn-primary" disabled={pending || isFull || (!waiting && !isMember)}
+                      onClick={() => isMember ? onOpen(lobby.code) : join(lobby.code)}
+                      aria-label={`${isMember ? "Открыть лобби" : "Подключиться к лобби"} ${lobby.code}`}>
+                      {isMember ? "Открыть" : isFull ? "Мест нет" : "Подключиться"}
                     </button>
-                    {isMember && <button className="btn btn-danger" type="button" onClick={() => leave(lobby.code)}
+                    {isMember && <button className="btn btn-danger" type="button" disabled={pending} onClick={() => leave(lobby.code)}
                       aria-label={`Выйти из партии ${lobby.code}`}>Выйти из партии</button>}
                   </div></td>
                 </tr>

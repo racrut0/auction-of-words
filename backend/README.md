@@ -27,6 +27,10 @@ uvicorn app.main:app --reload --port 8081
 Если PostgreSQL уже запущен, укажите свою строку подключения в `DATABASE_URL` и создайте БД
 `wordauction` и `wordauction_test`.
 
+Если запускаете `dev_db.ps1` с установленной версией PostgreSQL, отличной от 13, передайте
+`-PgBin "C:\Program Files\PostgreSQL\18\bin"` с путём к вашей версии. Сохраните один и тот же
+`JWT_SECRET` в локальном `.env`, чтобы сессии оставались действительными после перезапуска.
+
 ## Тесты
 
 Тесты используют отдельную БД `wordauction_test` (можно переопределить через `TEST_DATABASE_URL`).
@@ -45,6 +49,7 @@ cd backend
 | GET | `/api/health` | Проверка приложения и БД |
 | POST | `/api/auth/register` | Регистрация |
 | POST | `/api/auth/login` | Вход по имени или e-mail |
+| POST | `/api/auth/guest` | Вход гостя по нику и выдача токена |
 | POST | `/api/auth/confirm-email` | Подтверждение e-mail |
 | POST | `/api/auth/resend-confirmation` | Повторная отправка токена |
 | POST | `/api/auth/forgot-password` | Токен смены пароля |
@@ -52,8 +57,19 @@ cd backend
 | GET | `/api/profile` | Профиль и статистика |
 | PUT | `/api/profile/email` | Смена e-mail |
 | GET | `/api/word-bank/default` | Стандартный банк слов |
+| GET | `/api/lobbies` | Список ожидающих лобби и текущая партия игрока |
+| POST | `/api/lobbies` | Создать лобби с настройками и банком слов |
+| GET | `/api/lobbies/{code}` | Получить состояние своей комнаты |
+| POST | `/api/lobbies/{code}/join` | Подключиться по коду |
+| PUT | `/api/lobbies/{code}/ready` | Задать готовность текущего игрока |
+| POST | `/api/lobbies/{code}/start` | Запустить первый раунд |
+| DELETE | `/api/lobbies/{code}/players/{playerId}` | Исключить игрока до старта |
+| DELETE | `/api/lobbies/{code}/players/me` | Покинуть указанную комнату |
+| DELETE | `/api/lobbies/membership` | Покинуть текущую комнату |
 
 Для защищённых запросов нужен заголовок `Authorization: Bearer <токен>`.
+
+При старте сервер фиксирует порядок участников, ставит первый раунд и открывает этап аукциона. Лоты и ставки появятся отдельно. Рабочие таблицы `lobbies` и `lobby_players` создаются при запуске. Пустые комнаты удаляются при выходе последнего участника.
 
 ## Структура
 

@@ -12,8 +12,7 @@ const USER_SESSION_KEY = "word-auction:user";
 function readUser() {
   try {
     const user = JSON.parse(sessionStorage.getItem(USER_SESSION_KEY));
-    if (typeof user?.id !== "string" || typeof user.nick !== "string") return null;
-    if (user.guest === true || (typeof user.token === "string" && user.token)) return user;
+    if (typeof user?.nick === "string" && typeof user.token === "string" && user.token) return user;
     return null;
   } catch {
     return null;
@@ -32,6 +31,7 @@ function saveUser(user) {
 export default function App() {
   const [screen, setScreen] = useState("login");
   const [user, setUser] = useState(readUser);
+  const [signingOut, setSigningOut] = useState(false);
   const [page, setPage] = useState(() => {
     const p = new URLSearchParams(window.location.search).get("page");
     return ["rules", "connection", "profile"].includes(p) ? p : null;
@@ -46,26 +46,28 @@ export default function App() {
     setPage(nextPage);
     window.scrollTo(0, 0);
   };
-  const enter = (u) => {
-    const nextUser = { ...u, id: crypto.randomUUID() };
-    saveUser(nextUser);
-    setUser(nextUser);
-    window.location.hash = "lobby";
-  };
-  const enterAccount = ({ username, token }) => {
+  const enter = ({ username, token, guest = false }) => {
     if (typeof username !== "string" || !username || typeof token !== "string" || !token) {
       throw new Error("Сервер вернул неполные данные для входа.");
     }
-    enter({ nick: username, token, guest: false });
+    const nextUser = { nick: username, token, guest };
+    saveUser(nextUser);
+    setUser(nextUser);
+    if (!/^#lobby\/[A-Z0-9]{6}$/.test(window.location.hash)) window.location.hash = "lobby";
   };
-  const logout = () => {
+  const logout = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
     try {
-      lobbyService.leave(user.id);
+      await lobbyService.leaveCurrent(user.token);
+    } catch {
+      // Сессия на устройстве закрывается даже при потере связи.
     } finally {
       saveUser(null);
       setUser(null);
       openPage(null);
       setScreen("login");
+      setSigningOut(false);
       window.location.hash = "";
     }
   };
@@ -87,7 +89,7 @@ export default function App() {
             </nav>
             <div className="session-actions">
               <span className="who">{user.nick}{user.guest ? " (гость)" : ""}</span>
-              <button className="btn btn-outline" onClick={logout}>Выйти</button>
+              <button className="btn btn-outline" onClick={logout} disabled={signingOut}>Выйти</button>
             </div>
           </div>
         )}
@@ -96,15 +98,15 @@ export default function App() {
         {currentPage === "rules" && <RulesPage onClose={() => openPage(null)} />}
         {currentPage === "connection" && <ConnectionLostPage onBack={backToLobby} />}
         {currentPage === "profile" && user && (
-          <ProfilePage key={user.id} user={user} onSessionExpired={logout} onBack={backToLobby} />
+          <ProfilePage user={user} onSessionExpired={logout} onBack={backToLobby} />
         )}
         {!currentPage && !user && screen === "login" && (
-          <LoginPage onLogin={enterAccount} onGuest={enter} goRegister={() => setScreen("register")} />
+          <LoginPage onLogin={enter} goRegister={() => setScreen("register")} />
         )}
         {!currentPage && !user && screen === "register" && (
-          <RegisterPage onRegister={enterAccount} goLogin={() => setScreen("login")} />
+          <RegisterPage onRegister={enter} goLogin={() => setScreen("login")} />
         )}
-        {!currentPage && user && <LobbyApp user={user} />}
+        {!currentPage && user && <LobbyApp user={user} onSessionExpired={logout} />}
       </main>
     </>
   );

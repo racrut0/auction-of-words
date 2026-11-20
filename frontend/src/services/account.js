@@ -1,4 +1,4 @@
-async function request(path, { method = "GET", data, token, signal } = {}) {
+export async function request(path, { method = "GET", data, token, signal } = {}) {
   const headers = { Accept: "application/json" };
   if (data) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -35,6 +35,10 @@ async function request(path, { method = "GET", data, token, signal } = {}) {
 
 export function login(credentials, signal) {
   return request("/auth/login", { method: "POST", data: credentials, signal });
+}
+
+export function loginGuest(credentials, signal) {
+  return request("/auth/guest", { method: "POST", data: credentials, signal });
 }
 
 export function register(credentials, signal) {

@@ -25,6 +25,7 @@ export default function CreateLobbyPage({ user, onBack, onCreated }) {
   const [fileName, setFileName] = useState("words.txt");
   const [wordError, setWordError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const fileInput = useRef(null);
   const uploadSequence = useRef(0);
@@ -71,16 +72,27 @@ export default function CreateLobbyPage({ user, onBack, onCreated }) {
     setExpanded(false);
   }
 
-  function submit(event) {
+  async function submit(event) {
     event.preventDefault();
     const nextErrors = validateLobbySettings(settings);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length || wordError || loading) return;
+    if (Object.keys(nextErrors).length || wordError || loading || creating) return;
+    setCreating(true);
+    setError("");
     try {
-      const lobby = lobbyService.create(user, settings, words, fileName);
+      const requestSettings = {
+        maxPlayers: Number(settings.maxPlayers),
+        startingCoins: Number(settings.startingCoins),
+        rounds: Number(settings.rounds),
+        playerOrder: settings.playerOrder,
+        letterPenalty: Number(settings.letterPenalty),
+      };
+      const lobby = await lobbyService.create(user.token, requestSettings, words);
       onCreated(lobby.code);
     } catch (e) {
       setError(e.message);
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -111,7 +123,9 @@ export default function CreateLobbyPage({ user, onBack, onCreated }) {
               <UnitInput {...inputProps("letterPenalty")} min="0" max="100" step="1" unit={plural(Number(settings.letterPenalty), ["очко", "очка", "очков"])} />
             </SettingField>
             {error && <p className="form-error" role="alert">{error}</p>}
-            <button className="btn btn-primary create-submit" type="submit" disabled={loading || Boolean(wordError)}>Создать лобби</button>
+            <button className="btn btn-primary create-submit" type="submit" disabled={creating || loading || Boolean(wordError)}>
+              {creating ? "Создаётся лобби…" : "Создать лобби"}
+            </button>
           </form>
         </section>
         <section className="panel word-bank-panel" aria-labelledby="word-bank-title">
