@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ServiceError
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models.game import Game, GameStatus, PlayerState
+from app.models.game import GameStatus, PlayerState
 from app.models.user import Role, User
 from app.schemas.auth import AuthRequest, AuthResponse, ForgotPasswordResponse
 from app.schemas.profile import ProfileDto
